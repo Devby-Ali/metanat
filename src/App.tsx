@@ -1,35 +1,80 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useCallback, useEffect, useState } from "react";
+import { useRoutes, useLocation } from "react-router-dom";
+import AuthContext from "./context/authContext";
+import routes from "./routes";
+import type { UserInfo } from "./types/AuthContext.types";
 
-function App() {
-  const [count, setCount] = useState(0)
+const App = () => {
+  const location = useLocation();
+
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [token, setToken] = useState<false | null | string>(false);
+  const [userInfos, setUserInfos] = useState<UserInfo>({} as UserInfo);
+
+  const router = useRoutes(routes);
+
+  const login = useCallback(
+    (userInfos: UserInfo, token: false | null | string) => {
+      setToken(token);
+      setIsLoggedIn(true);
+      setUserInfos(userInfos);
+      localStorage.setItem("user", JSON.stringify({ token }));
+    },
+    []
+  );
+
+  const logout = useCallback(() => {
+    setToken(null);
+    setUserInfos({} as UserInfo);
+    localStorage.removeItem("user");
+  }, []);
+
+  useEffect(() => {
+    const localStorageData = JSON.parse(localStorage.getItem("user")!);
+    if (localStorageData) {
+      const userInfosHandler = async () => {
+        try {
+          const res = await getUserInfos();
+          setIsLoggedIn(true);
+          setUserInfos(res);
+        } catch (error) {
+          console.error("Error Auth Me (getUserInfos):", error);
+        }
+      };
+      userInfosHandler();
+    } else {
+      setIsLoggedIn(false);
+    }
+  }, [login, logout]);
+
+  useEffect(() => {
+    if (localStorage.theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <AuthContext.Provider
+        value={{
+          isLoggedIn,
+          token,
+          userInfos,
+          login,
+          logout,
+        }}
+      >
+        {router}
+      </AuthContext.Provider>
     </>
-  )
-}
+  );
+};
 
-export default App
+export default App;
+
